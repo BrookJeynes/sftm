@@ -17,7 +17,7 @@ appropriate version or build locally via `zig build -Doptimize=ReleaseSafe`.
 ## Running
 Currently, there is an issue with the underlying library being used and debug
 output is printed to the terminal. This overwrites what's being rendered on the
-screen. The simply fix is to redirect output to something like `NUL`.
+screen. The simple fix is to redirect output to `/dev/null`.
 
 ```bash
 ./sftm 2>/dev/null
