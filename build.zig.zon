@@ -1,0 +1,24 @@
+.{
+    .name = "sftm",
+
+    // Must match the `version` in `build.zig`
+    .version = "0.1.0",
+    // Must match the `minimum_zig_version` in `build.zig`
+    .minimum_zig_version = "0.13.0",
+
+    .dependencies = .{
+        .vaxis = .{
+            .url = "git+https://github.com/rockorager/libvaxis#3b06180fdbcb44333472cda6a5fd3e8dba3c6b60",
+            .hash = "1220d5ea1168a7a2ac159c78b6904766bc580f402a523087bd805909241e3170a4a6",
+        },
+        .fuzzig = .{
+            .url = "git+https://github.com/fjebaker/fuzzig#0fd156d5097365151e85a85eef9d8cf0eebe7b00",
+            .hash = "122019f077d09686b1ec47928ca2b4bf264422f3a27afc5b49dafb0129a4ceca0d01",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+    },
+}
