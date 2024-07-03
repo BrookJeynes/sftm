@@ -248,8 +248,6 @@ pub fn eventLoop(self: *Self) !void {
                 .input => {
                     switch (event) {
                         .key_press => |key| {
-                            if (key.matches('c', .{ .ctrl = true })) return;
-
                             switch (key.codepoint) {
                                 vaxis.Key.escape => {
                                     self.show_terminal_switcher = false;
