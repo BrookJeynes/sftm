@@ -178,8 +178,6 @@ pub fn eventLoop(self: *Self) !void {
                 .normal => {
                     switch (event) {
                         .key_press => |key| {
-                            if (key.matches('c', .{ .ctrl = true })) return;
-
                             if (command) {
                                 switch (key.codepoint) {
                                     'q' => {
@@ -268,7 +266,12 @@ pub fn eventLoop(self: *Self) !void {
                                     self.text_input.clearAndFree();
                                     self.show_terminal_switcher = false;
                                     self.state = .normal;
-                                    self.terminals.terminals.selected = self.terminal_switcher_list.selected;
+
+                                    for (self.terminals.terminals.getAll(), 0..) |term, i| {
+                                        if (term == self.terminal_switcher_list.getSelected().?) {
+                                            self.terminals.terminals.selected = i;
+                                        }
+                                    }
                                 },
                                 else => {
                                     try self.text_input.update(.{ .key_press = key });
