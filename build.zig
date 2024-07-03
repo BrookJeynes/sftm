@@ -31,8 +31,8 @@ pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const libvaxis = b.dependency("vaxis", .{ .target = target }).module("vaxis");
-    const fuzzig = b.dependency("fuzzig", .{ .target = target }).module("fuzzig");
+    const libvaxis = b.dependency("vaxis", .{ .target = target, .optimize = optimize }).module("vaxis");
+    const fuzzig = b.dependency("fuzzig", .{ .target = target, .optimize = optimize }).module("fuzzig");
     const exe = b.addExecutable(.{
         .name = "sftm",
         .root_source_file = b.path("src/main.zig"),
@@ -45,10 +45,22 @@ pub fn build(b: *std.Build) !void {
 
     const run_cmd = b.addRunArtifact(exe);
     run_cmd.step.dependOn(b.getInstallStep());
+
+    const exe_check = b.addExecutable(.{
+        .name = "sftm",
+        .root_source_file = b.path("src/main.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    exe_check.root_module.addImport("fuzzig", fuzzig);
+    exe_check.root_module.addImport("vaxis", libvaxis);
+
+    const check = b.step("check", "Check if sftm compiles.");
+    check.dependOn(&exe_check.step);
+
     if (b.args) |args| {
         run_cmd.addArgs(args);
     }
-
     const run_step = b.step("run", "Run the app");
     run_step.dependOn(&run_cmd.step);
 
@@ -69,17 +81,18 @@ fn build_targets(b: *std.Build, build_options_module: *std.Build.Module) !void {
         .{ .cpu_arch = .aarch64, .os_tag = .linux },
         .{ .cpu_arch = .x86_64, .os_tag = .linux },
     };
+    const optimize = .ReleaseSafe;
 
     for (targets) |t| {
         const target = b.resolveTargetQuery(t);
-        const libvaxis = b.dependency("vaxis", .{ .target = target }).module("vaxis");
-        const fuzzig = b.dependency("fuzzig", .{ .target = target }).module("fuzzig");
+        const libvaxis = b.dependency("vaxis", .{ .target = target, .optimize = optimize }).module("vaxis");
+        const fuzzig = b.dependency("fuzzig", .{ .target = target, .optimize = optimize }).module("fuzzig");
 
         const exe = b.addExecutable(.{
             .name = "sftm",
             .root_source_file = b.path("src/main.zig"),
             .target = target,
-            .optimize = .ReleaseSafe,
+            .optimize = optimize,
         });
         exe.root_module.addImport("fuzzig", fuzzig);
         exe.root_module.addImport("vaxis", libvaxis);
