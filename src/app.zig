@@ -10,7 +10,7 @@ const Event = union(enum) {
     winsize: vaxis.Winsize,
 };
 
-pub const State = enum { normal, input };
+pub const State = enum { normal, fuzzy, rename };
 
 const Self = @This();
 
@@ -23,6 +23,7 @@ state: State = .normal,
 
 last_known_height: usize = 0,
 
+show_terminal_rename: bool = false,
 show_terminal_switcher: bool = false,
 terminal_switcher_list: List(*Terminal, Terminals.max_terminals),
 
@@ -78,6 +79,10 @@ pub fn draw(self: *Self) !void {
     if (self.show_terminal_switcher) {
         try self.drawTerminalSwitcher(win);
     }
+
+    if (self.show_terminal_rename) {
+        try self.drawTerminalRename(win);
+    }
 }
 
 pub fn drawTerminalSwitcher(self: *Self, win: vaxis.Window) !void {
@@ -95,7 +100,7 @@ pub fn drawTerminalSwitcher(self: *Self, win: vaxis.Window) !void {
     self.text_input.draw(pane_menu);
 
     for (self.terminal_switcher_list.getAll()[self.terminal_switcher_list.offset..], 0..) |term, i| {
-        const cwd = try Terminals.getName(self.alloc, term.*);
+        const cwd = Terminals.getName(term.*) orelse "";
 
         const selected = self.terminal_switcher_list.selected - self.terminal_switcher_list.offset;
         const is_selected = selected == i;
@@ -118,6 +123,21 @@ pub fn drawTerminalSwitcher(self: *Self, win: vaxis.Window) !void {
             .style = if (is_selected) .{ .bg = .{ .rgb = .{ 45, 45, 45 } } } else .{ .bg = .{ .rgb = .{ 25, 25, 25 } } },
         }}, .{});
     }
+}
+
+pub fn drawTerminalRename(self: *Self, win: vaxis.Window) !void {
+    const pane_menu = win.child(.{
+        .x_off = win.width / 4,
+        .y_off = win.height / 4,
+        .width = .{ .limit = win.width / 2 },
+        .height = .{ .limit = win.height / 2 },
+        .border = .{ .glyphs = .single_square, .where = .all },
+    });
+    self.last_known_height = pane_menu.height;
+
+    pane_menu.fill(vaxis.Cell{ .style = .{ .bg = .{ .rgb = .{ 25, 25, 25 } } } });
+
+    self.text_input.draw(pane_menu);
 }
 
 pub fn drawTerminal(self: *Self, win: vaxis.Window) !void {
@@ -222,11 +242,18 @@ pub fn eventLoop(self: *Self) !void {
                                     '[' => self.terminals.terminals.previous(0),
                                     ';' => {
                                         self.show_terminal_switcher = true;
-                                        self.state = .input;
+                                        self.state = .fuzzy;
 
                                         self.terminal_switcher_list.clear();
                                         self.terminal_switcher_list.items = self.terminals.terminals.items;
                                         self.terminal_switcher_list.len = self.terminals.terminals.len;
+                                    },
+                                    'r' => {
+                                        if (self.terminals.getCurrentTerm()) |term| {
+                                            self.show_terminal_rename = true;
+                                            self.state = .rename;
+                                            self.text_input.insertSliceAtCursor(Terminals.getName(term.*) orelse "") catch {};
+                                        }
                                     },
                                     else => {},
                                 }
@@ -245,7 +272,7 @@ pub fn eventLoop(self: *Self) !void {
                         },
                     }
                 },
-                .input => {
+                .fuzzy => {
                     switch (event) {
                         .key_press => |key| {
                             switch (key.codepoint) {
@@ -280,7 +307,7 @@ pub fn eventLoop(self: *Self) !void {
 
                                     // Fuzzy list.
                                     for (self.terminals.terminals.getAll()) |term| {
-                                        const cwd = try Terminals.getName(self.alloc, term.*);
+                                        const cwd = Terminals.getName(term.*) orelse "";
                                         self.text_input.cursor_idx = self.text_input.grapheme_count;
                                         const fuzzy_search = self.text_input.sliceToCursor(&self.text_input_buf);
                                         const score = self.searcher.score(cwd, fuzzy_search) orelse 0;
@@ -294,6 +321,33 @@ pub fn eventLoop(self: *Self) !void {
 
                                     self.terminal_switcher_list.items = items;
                                     self.terminal_switcher_list.len = len;
+                                },
+                            }
+                        },
+                        .winsize => |ws| {
+                            try self.vx.resize(self.alloc, self.tty.anyWriter(), ws);
+                        },
+                    }
+                },
+                .rename => {
+                    switch (event) {
+                        .key_press => |key| {
+                            switch (key.codepoint) {
+                                vaxis.Key.escape => {
+                                    self.show_terminal_rename = false;
+                                    self.state = .normal;
+                                    self.text_input.clearAndFree();
+                                },
+                                vaxis.Key.enter => {
+                                    const new_name = self.text_input.sliceToCursor(&self.text_input_buf);
+                                    try self.terminals.getCurrentTerm().?.title.appendSlice(new_name);
+
+                                    self.text_input.clearAndFree();
+                                    self.show_terminal_rename = false;
+                                    self.state = .normal;
+                                },
+                                else => {
+                                    try self.text_input.update(.{ .key_press = key });
                                 },
                             }
                         },

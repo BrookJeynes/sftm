@@ -65,11 +65,6 @@ pub fn removeSelected(self: *Terminals) void {
     }
 }
 
-pub fn getName(alloc: std.mem.Allocator, term: Terminal) ![]const u8 {
-    return if (term.working_directory.items.len > 0)
-        term.working_directory.items
-    else if (term.cmd.working_directory) |init_dir|
-        init_dir
-    else
-        try std.fs.cwd().realpathAlloc(alloc, ".");
+pub fn getName(term: Terminal) ?[]const u8 {
+    return term.cmd.working_directory;
 }
